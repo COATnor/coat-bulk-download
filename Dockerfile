@@ -12,7 +12,8 @@ RUN pdm install --no-self
 
 COPY app.py ./
 ENV COAT_URL="https://data.coat.no/"
+ENV TIMEOUT=300
 
 EXPOSE 8000/TCP
-ENTRYPOINT ["/bin/bash", "-xeu", "-c", "exec /wait-for $COAT_URL -- $0 $@"]
+ENTRYPOINT ["/bin/bash", "-xeu", "-c", "exec /wait-for --timeout $TIMEOUT $COAT_URL -- $0 $@"]
 CMD ["pdm", "run", "python3", "-m", "uvicorn", "app:app", "--host", "0.0.0.0"]
