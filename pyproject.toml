@@ -1,0 +1,25 @@
+[project]
+name = "coat-bulk-download"
+version = "0.1"
+description = "Export COAT datasets as archives"
+authors = [
+    {name = "Francesco Frassinelli", email = "francesco.frassinelli@nina.no"},
+]
+dependencies = [
+    "fastapi>=0.88.0",
+    "httpx>=0.23.1",
+    "uvicorn>=0.20.0",
+    "stream-zip>=v0.0.50",
+]
+requires-python = ">=3.8"
+license = {text = "GPLv3"}
+
+[tool]
+[tool.pdm]
+[tool.black]
+[tool.isort]
+# https://pycqa.github.io/isort/docs/configuration/black_compatibility.html
+profile = "black"
+[tool.ruff]
+fix = true
+ignore = ["E501"]
