@@ -9,7 +9,7 @@ import httpx
 import stream_zip
 
 app = fastapi.FastAPI()
-URL = os.getenv("COAT_URL", "https://data.coat.no/")
+URL = os.environ["COAT_URL"]
 
 
 def generate_archive(data, cookies):
