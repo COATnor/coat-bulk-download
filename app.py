@@ -46,11 +46,10 @@ def generate_archive(data, cookies):
 
 
 @app.get("/dataset/{dataset_id}/zip")
-async def download_zip(dataset_id, ckan=fastapi.Cookie(), auth_tkt=fastapi.Cookie()):
-    cookies = {"ckan": ckan, "auth_tkt": auth_tkt}
+async def download_zip(request: fastapi.Request, dataset_id):
     data = {"id": dataset_id}
     return fastapi.responses.StreamingResponse(
-        stream_zip.stream_zip(generate_archive(data, cookies)),
+        stream_zip.stream_zip(generate_archive(data, request.cookies)),
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{dataset_id}.zip"'},
     )

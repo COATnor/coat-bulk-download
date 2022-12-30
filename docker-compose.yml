@@ -1,0 +1,12 @@
+version: "3"
+services:
+  bulk-download:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      COAT_URL: https://data.coat.no/
+      COAT_PUBLIC_URL: https://data.coat.no/
+    image: ghcr.io/coatnor/coat-bulk-download:main
+    ports:
+    - 8000:8000
