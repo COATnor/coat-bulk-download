@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 
+import csv
 import datetime
+import io
+import itertools
+import json
 import logging
 import os
 import re
@@ -8,6 +12,7 @@ import urllib.parse
 
 import fastapi
 import httpx
+import jinja2
 import stream_zip
 
 app = fastapi.FastAPI()
@@ -15,6 +20,14 @@ COAT_URL = os.environ["COAT_URL"]
 COAT_PUBLIC_URL = os.getenv("COAT_PUBLIC_URL", COAT_URL)
 
 logging.basicConfig(level=os.getenv("LOGGING", "INFO"))
+csv.register_dialect("coat", quoting=csv.QUOTE_ALL, delimiter=";", quotechar='"')
+jinja_env = jinja2.Environment(
+    loader=jinja2.FileSystemLoader(searchpath="templates/"),
+    autoescape=jinja2.select_autoescape(
+        enabled_extensions=("xml"),
+        default_for_string=True,
+    ),
+)
 
 
 def external_to_internal(external_url):
@@ -56,9 +69,9 @@ async def download_zip(request: fastapi.Request, dataset_id):
     )
 
 
-def get_basename(response):
+def get_extra(response, key):
     for extra in response["extras"]:
-        if extra["key"] == "base_name":
+        if extra["key"] == key:
             return extra["value"]
 
 
@@ -78,25 +91,76 @@ def get_latest_modified(resources):
     return latest_modified
 
 
-def merge_csv(csvs, cookies):
-    for index, csv in enumerate(csvs):
-        internal_url = external_to_internal(csv["url"])
-        content = httpx.get(internal_url, cookies=cookies).iter_lines()
-        if index > 0:
-            next(content)  # skip header
-        for line in content:
-            yield line.encode("utf-8")
+def merge_csv(resources, cookies):
+    buffer = io.StringIO()
+    writer = None
+    for resource in resources:
+        internal_url = external_to_internal(resource["url"])
+        lines = httpx.get(internal_url, cookies=cookies).iter_lines()
+        content = csv.DictReader(lines, dialect="coat")
+        header = next(content)
+        if not writer:
+            writer = csv.DictWriter(buffer, header, dialect="coat")
+            writer.writeheader()
+            yield buffer.getvalue().encode("utf-8")
+            buffer.seek(0)
+            buffer.truncate()
+        for row in content:
+            writer.writerow(row)
+            yield buffer.getvalue().encode("utf-8")
+            buffer.seek(0)
+            buffer.truncate()
+
+
+def peek(iterable):
+    first = next(iterable)
+    return first, itertools.chain([first], iterable)
+
+
+def get_bbox_from_points(points):
+    return {
+        "west": min(lon for lon, lat in points),
+        "east": max(lon for lon, lat in points),
+        "south": min(lat for lon, lat in points),
+        "north": max(lat for lon, lat in points),
+    }
 
 
 def generate_dwca(data, cookies):
     package_show = urllib.parse.urljoin(COAT_URL, "api/3/action/package_show")
     response = httpx.post(package_show, json=data, cookies=cookies).json()
     result = response["result"]
-    basename = get_basename(result)
+    # Detect type
+    name = result["name"]
+    if "_metadata_" in name:
+        return
+    elif "_example_" in name:
+        dwc_template_name = "example.xml"
+    else:
+        return
+    # Data
+    basename = get_extra(result, "base_name")
     csvs = list(filter_csvs(basename, result["resources"]))
     modified_at = get_latest_modified(csvs)
-    csv = merge_csv(csvs, cookies)
-    yield result["name"] + ".csv", modified_at, 0o600, stream_zip.ZIP_32, csv
+    header, csv = peek(merge_csv(csvs, cookies))
+    csv_name = result["name"] + ".csv"
+    yield csv_name, modified_at, 0o600, stream_zip.ZIP_32, csv
+    # EML
+    modified_metadata = datetime.datetime.fromisoformat(result["metadata_modified"])
+    points = json.loads(get_extra(result, "spatial"))["coordinates"]
+    bbox = get_bbox_from_points(*points)
+    result["url"] = urllib.parse.urljoin(COAT_URL, "dataset/" + result["name"])
+    eml_template = jinja_env.get_template("eml.xml")
+    eml = (chunk.encode("utf-8") for chunk in eml_template.stream(**result, **bbox))
+    yield "eml.xml", modified_metadata, 0o600, stream_zip.ZIP_32, eml
+    # DarwinCore
+    params = {
+        "metadata": "eml.xml",
+        "location": csv_name,
+    }
+    dwc_template = jinja_env.get_template(dwc_template_name)
+    dwc = (chunk.encode("utf-8") for chunk in dwc_template.stream(**params))
+    yield "meta.xml", modified_at, 0o600, stream_zip.ZIP_32, dwc
 
 
 @app.get("/dataset/{dataset_id}/dwca")

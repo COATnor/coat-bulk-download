@@ -11,6 +11,7 @@ COPY pyproject.toml pdm.lock .
 RUN pdm install --no-self
 
 COPY app.py ./
+COPY templates/eml.xml templates/example.xml templates/
 ENV COAT_URL="https://data.coat.no/"
 ENV TIMEOUT=300
 
