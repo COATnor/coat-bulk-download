@@ -1,0 +1,20 @@
+<OGRVRTDataSource>
+  <OGRVRTLayer name="{{ layer_name }}">
+    <SrcDataSource><![CDATA[
+        <OGRVRTDataSource>
+          <OGRVRTLayer name="{{ coordinates.name }}">
+            <SrcDataSource>CSV:/vsicurl/{{ coordinates.url }}</SrcDataSource>
+          </OGRVRTLayer>
+          <OGRVRTUnionLayer name="unionLayer">
+          {% for year in data %}<OGRVRTLayer name="{{ year.name }}">
+              <SrcDataSource>CSV:/vsicurl/{{ year.url }}</SrcDataSource>
+            </OGRVRTLayer>{% endfor %}
+          </OGRVRTUnionLayer>
+        </OGRVRTDataSource>]]>
+      </SrcDataSource>
+    <SrcSQL>select * from unionLayer join {{ coordinates.name }} on {{ coordinates.name }}.sn_site=unionLayer.sn_site</SrcSQL>
+    <GeometryField encoding="PointFromColumns" x="e_dd" y="n_dd">
+      <GeometryType>wkbPoint</GeometryType>
+    </GeometryField>
+  </OGRVRTLayer>
+</OGRVRTDataSource>

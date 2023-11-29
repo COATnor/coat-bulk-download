@@ -2,18 +2,19 @@
 
 import datetime
 import logging
-import os
 import urllib.parse
 
 import fastapi
 import httpx
 import stream_zip
 
-app = fastapi.FastAPI()
-COAT_URL = os.environ["COAT_URL"]
-COAT_PUBLIC_URL = os.getenv("COAT_PUBLIC_URL", COAT_URL)
+from .geojson import handle_geojson
+from .config import COAT_URL, COAT_PUBLIC_URL, LOGGING
 
-logging.basicConfig(level=os.getenv("LOGGING", "INFO"))
+
+app = fastapi.FastAPI()
+
+logging.basicConfig(level=LOGGING)
 
 
 def external_to_internal(external_url):
@@ -53,3 +54,7 @@ async def download_zip(request: fastapi.Request, dataset_id):
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{dataset_id}.zip"'},
     )
+
+@app.get("/dataset/{dataset_id}/geojson")
+async def download_geojson(request: fastapi.Request, dataset_id):
+    return handle_geojson(request, dataset_id)

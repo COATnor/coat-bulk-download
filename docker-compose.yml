@@ -1,12 +1,28 @@
 version: "3"
+
+x-shared: &bulk-download
+  build:
+    context: .
+    dockerfile: Dockerfile
+  environment:
+    COAT_URL: https://data.coat.no/
+    COAT_PUBLIC_URL: https://data.coat.no/
+  image: ghcr.io/coatnor/coat-bulk-download:main
+  ports:
+    - 8000:8000
+
 services:
   bulk-download:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    environment:
-      COAT_URL: https://data.coat.no/
-      COAT_PUBLIC_URL: https://data.coat.no/
-    image: ghcr.io/coatnor/coat-bulk-download:main
+    <<: *bulk-download
+    profiles:
+      - prod
+
+  bulk-download-dev:
+    <<: *bulk-download
+    volumes:
+      - ./coat_bulk_download:/app/coat_bulk_download
     ports:
-    - 8000:8000
+      - 8000:8000
+    command: pdm run python3 -m uvicorn coat_bulk_download.app:app --host 0.0.0.0 --reload
+    profiles:
+      - dev
