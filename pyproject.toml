@@ -26,3 +26,6 @@ ignore = ["E501"]
 [tool.setuptools.packages.find]
 include = ["coat_bulk_download*"]
 namespaces = false
+
+[tool.pdm.scripts]
+pull_datasets =  "python -m coat_bulk_download.pull_datasets"

@@ -21,6 +21,8 @@ services:
     <<: *bulk-download
     volumes:
       - ./coat_bulk_download:/app/coat_bulk_download
+      - ./geojson:/app/geojson
+      - ./pyproject.toml:/app/pyproject.toml
     ports:
       - 8000:8000
     command: pdm run python3 -m uvicorn coat_bulk_download.app:app --host 0.0.0.0 --reload

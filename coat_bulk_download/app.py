@@ -8,8 +8,7 @@ import fastapi
 import httpx
 import stream_zip
 
-from .geojson import handle_geojson
-from .config import COAT_URL, COAT_PUBLIC_URL, LOGGING
+from .config import COAT_URL, COAT_PUBLIC_URL, LOGGING, GEOJSON_PATH
 
 
 app = fastapi.FastAPI()
@@ -55,6 +54,23 @@ async def download_zip(request: fastapi.Request, dataset_id):
         headers={"Content-Disposition": f'attachment; filename="{dataset_id}.zip"'},
     )
 
+
+def read_geojson(dataset_id):
+    with open(str(GEOJSON_PATH / dataset_id), mode="rb") as geojson:
+        yield from geojson
+
+
 @app.get("/dataset/{dataset_id}/geojson")
 async def download_geojson(request: fastapi.Request, dataset_id):
-    return handle_geojson(request, dataset_id)
+    try:
+        return fastapi.responses.StreamingResponse(
+            read_geojson(dataset_id),
+            media_type='application/json',
+            headers={"Content-Disposition": f'attachment; filename="{dataset_id}.json"'},
+        )
+    except:
+        return {
+            "type": "FeatureCollection",
+            "features": [],
+            "name": dataset_id
+        }
