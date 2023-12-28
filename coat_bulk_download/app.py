@@ -39,7 +39,8 @@ def generate_archive(data, cookies):
     package_show = urllib.parse.urljoin(COAT_URL, "api/3/action/package_show")
     response = httpx.post(package_show, json=data, cookies=cookies).json()
     for resource in response["result"]["resources"]:
-        modified_at = datetime.datetime.fromisoformat(resource["last_modified"])
+        last_modified = resource["last_modified"] or resource["created"]
+        modified_at = datetime.datetime.fromisoformat(last_modified)
         internal_url = external_to_internal(resource["url"])
         content = httpx.get(internal_url, cookies=cookies).iter_bytes()
         yield resource["name"], modified_at, 0o600, stream_zip.ZIP_32, content
